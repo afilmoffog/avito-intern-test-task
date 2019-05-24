@@ -1,6 +1,6 @@
 from flask import Flask, Response, request
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure, ConfigurationError
 import shell_scripts
 
 
@@ -23,14 +23,17 @@ def get_mongo():
 def test_mongo():
     host, port = request.args.get('host', default='localhost'), request.args.get('port', default='27017')
     uri = "mongodb://%s:%s/admin" % (host, port)
-    client = MongoClient(uri, maxPoolSize=1, connectTimeoutMS=3000, serverSelectionTimeoutMS=3000)
     resp = Response('false', mimetype='text/plain')
     try:
-        if client.admin.command('ismaster')['ok'] == 1:
-            resp = Response('true', mimetype='text/plain')
-    except ConnectionFailure:
-        resp = Response('false', mimetype='text/plain')
-
+        with MongoClient(uri, maxPoolSize=1, connectTimeoutMS=3000, serverSelectionTimeoutMS=3000) as client:
+            try:
+                if client.admin.command('ismaster')['ok'] == 1:
+                    resp = Response('true', mimetype='text/plain')
+            except ConnectionFailure:
+                pass
+                #response is false by default
+    except (ValueError, ConfigurationError):
+        pass
     return resp
 
 if __name__ == '__main__':
